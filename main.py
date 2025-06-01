@@ -1,9 +1,31 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
-import os
 import random
 
 TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
+
+# List of watches for $3000 box
+watches_3000 = [
+    "Rolex Oyster Precision 6426",
+    "Rolex Oysterdate Precision 6694",
+    "Rolex Air-King 5500",
+    "Rolex Oyster Perpetual 1002",
+    "Rolex Date 1500",
+    "Rolex Oyster Perpetual 6564",
+    "Rolex Oyster Perpetual 6430",
+    "Rolex Oyster Date 6517",
+    "Rolex Oyster Perpetual 6284",
+    "Rolex Oyster Perpetual 6718 (ladies)",
+    "Rolex Oyster Precision 1210",
+    "Rolex Oyster Perpetual Datejust 1601",
+    "Rolex Oyster Royal",
+    "Rolex Precision 9022",
+    "Rolex Oyster Perpetual 6618",
+    "Rolex Oyster Perpetual 67193",
+    "Rolex Oyster Perpetual 76193 (Ladies)",
+    "Rolex Oysterdate 6694 Linen Dial",
+    "Rolex Oyster Perpetual 14233 (Ladies)"
+]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -19,20 +41,12 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     box = query.data
 
-    if box in ['box_3000', 'box_6000', 'box_7500']:
-        folder_path = os.path.join("images", box)
-        files = os.listdir(folder_path)
-        if not files:
-            await query.edit_message_text("No watches available in this box yet.")
-            return
-
-        selected_file = random.choice(files)
-        photo_path = os.path.join(folder_path, selected_file)
-
-        with open(photo_path, 'rb') as photo:
-            await context.bot.send_photo(chat_id=query.message.chat.id, photo=photo, caption="🎉 Congratulations! DM for more information.")
+    if box == "box_3000":
+        selected_watch = random.choice(watches_3000)
+        message = f"🎉 Congratulations! You've received: *{selected_watch}*\n\nDM for more information."
+        await query.message.reply_text(message, parse_mode="Markdown")
     else:
-        await query.edit_message_text("Invalid box selected.")
+        await query.message.reply_text("❌ Invalid box selected.")
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
