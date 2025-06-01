@@ -41,10 +41,8 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photo=photo,
             caption="🎉 Congratulations! 👏\nDM for more information."
         )
-
-# MAIN WEBHOOK APP
 def main():
-    TOKEN = os.getenv("7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI")
+    TOKEN = 7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
