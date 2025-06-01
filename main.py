@@ -33,18 +33,15 @@ box_6000_watches = [
     "Cartier Tank Française"
 ]
 
-box_7500_watches = [
-    "Rolex Datejust 16234",
-    "Rolex Submariner 14060",
-    "Cartier Santos Galbée",
-    "Omega Seamaster 300M",
-    "Omega MoonSwatch 'Mission to the Moon'"  # This one should ALWAYS be the last!
+box_7500_regular_watches = [
+    "Omega Speedmaster Moonwatch",
+    "Rolex Oyster Royal",
+    "Omega Moonwatch Chronograph",
+    "Rolex Date 1500"
 ]
-
-# Track clicks for $7500 box
+special_7500_watch = "Omega MoonSwatch 'Mission to the Moon'"
 box_7500_clicks = 0
 
-# Welcome message
 WELCOME_MSG = (
     "🎉 Congratulations on buying your first mystery box!\n\n"
     "Please only select the box you purchased.\n"
@@ -80,19 +77,18 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif box == "box_7500":
         box_7500_clicks += 1
         if box_7500_clicks % 5 == 0:
-            selected_watch = box_7500_watches[-1]  # Always return the MoonSwatch every 5th click
+            selected_watch = special_7500_watch
         else:
-            selected_watch = random.choice(box_7500_watches[:-1])  # Random from the rest
+            selected_watch = random.choice(box_7500_regular_watches)
         await query.edit_message_text(f"🎁 Box Opened:\n{selected_watch}\n\nDM for more info!")
 
     else:
         await query.edit_message_text("⚠️ Invalid box selection.")
 
-# Main app logic
+# Main app
 def main():
     TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_button))
 
