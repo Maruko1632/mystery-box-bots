@@ -4,40 +4,24 @@ import random
 
 # Watches for each box
 box_3000_watches = [
-    "Rolex Oyster Precision 6426",
-    "Rolex Oysterdate Precision 6694",
-    "Rolex Air-King 5500",
-    "Rolex Oyster Perpetual 1002",
-    "Rolex Date 1500",
-    "Rolex Oyster Perpetual 6564",
-    "Rolex Oyster Perpetual 6430",
-    "Rolex Oyster Date 6517",
-    "Rolex Oyster Perpetual 6284",
-    "Rolex Oyster Perpetual 6718 (Ladies)",
-    "Rolex Oyster Precision 1210",
-    "Rolex Oyster Perpetual Datejust 1601",
-    "Rolex Oyster Royal",
-    "Rolex Precision 9022",
-    "Rolex Oyster Perpetual 6618",
-    "Rolex Oyster Perpetual 67193",
-    "Rolex Oyster Perpetual 76193 (Ladies)",
-    "Rolex Oysterdate 6694 Linen Dial",
+    "Rolex Oyster Precision 6426", "Rolex Oysterdate Precision 6694", "Rolex Air-King 5500",
+    "Rolex Oyster Perpetual 1002", "Rolex Date 1500", "Rolex Oyster Perpetual 6564",
+    "Rolex Oyster Perpetual 6430", "Rolex Oyster Date 6517", "Rolex Oyster Perpetual 6284",
+    "Rolex Oyster Perpetual 6718 (Ladies)", "Rolex Oyster Precision 1210",
+    "Rolex Oyster Perpetual Datejust 1601", "Rolex Oyster Royal", "Rolex Precision 9022",
+    "Rolex Oyster Perpetual 6618", "Rolex Oyster Perpetual 67193",
+    "Rolex Oyster Perpetual 76193 (Ladies)", "Rolex Oysterdate 6694 Linen Dial",
     "Rolex Oyster Perpetual 14233 (Ladies)"
 ]
 
 box_6000_watches = [
-    "Rolex Datejust 16014",
-    "Omega Seamaster Aqua Terra",
-    "Tudor Black Bay 36",
-    "Breitling Superocean Heritage",
-    "Cartier Tank Française"
+    "Rolex Datejust 16014", "Omega Seamaster Aqua Terra", "Tudor Black Bay 36",
+    "Breitling Superocean Heritage", "Cartier Tank Française"
 ]
 
 box_7500_regular_watches = [
-    "Omega Speedmaster Moonwatch",
-    "Rolex Oyster Royal",
-    "Omega Moonwatch Chronograph",
-    "Rolex Date 1500"
+    "Omega Speedmaster Moonwatch", "Rolex Oyster Royal",
+    "Omega Moonwatch Chronograph", "Rolex Date 1500"
 ]
 special_7500_watch = "Omega MoonSwatch 'Mission to the Moon'"
 box_7500_clicks = 0
@@ -68,11 +52,19 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if box == "box_3000":
         selected_watch = random.choice(box_3000_watches)
-        await query.edit_message_text(f"🎁 Box Opened:\n{selected_watch}\n\nDM for more info!")
+        keyboard = [[InlineKeyboardButton("🔁 Open Another $3000 Box", callback_data="box_3000")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            f"🎁 Box Opened:\n{selected_watch}\n\nDM for more info!", reply_markup=reply_markup
+        )
 
     elif box == "box_6000":
         selected_watch = random.choice(box_6000_watches)
-        await query.edit_message_text(f"🎁 Box Opened:\n{selected_watch}\n\nDM for more info!")
+        keyboard = [[InlineKeyboardButton("🔁 Open Another $6000 Box", callback_data="box_6000")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            f"🎁 Box Opened:\n{selected_watch}\n\nDM for more info!", reply_markup=reply_markup
+        )
 
     elif box == "box_7500":
         box_7500_clicks += 1
@@ -80,7 +72,11 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             selected_watch = special_7500_watch
         else:
             selected_watch = random.choice(box_7500_regular_watches)
-        await query.edit_message_text(f"🎁 Box Opened:\n{selected_watch}\n\nDM for more info!")
+        keyboard = [[InlineKeyboardButton("🔁 Open Another $7500 Box", callback_data="box_7500")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            f"🎁 Box Opened:\n{selected_watch}\n\nDM for more info!", reply_markup=reply_markup
+        )
 
     else:
         await query.edit_message_text("⚠️ Invalid box selection.")
@@ -90,10 +86,4 @@ def main():
     TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_button))
-
-    print("Bot is running...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+    app.add_handler(CallbackQueryHandler_
