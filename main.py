@@ -31,16 +31,25 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                      caption="🎉 Congratulations! DM for more information.")
     else:
         await query.edit_message_text("Invalid box selected.")
+import os
 from telegram.ext import Application
 
 def main():
-    TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
+    TOKEN = 7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI # Set this in Railway as a variable
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_button))
 
-    app.run_polling()
+    # Webhook setup
+    PORT = int(os.environ.get("PORT", 8443))
+    URL = f"https://{os.environ.get('RAILWAY_STATIC_URL')}/"
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=URL,
+    )
 
 if __name__ == '__main__':
     main()
