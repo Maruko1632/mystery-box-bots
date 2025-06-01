@@ -41,7 +41,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     token = os.getenv("BOT_TOKEN")
     if not token:
-        token = "7561016807:AAFSd9qksZTevryHjvqB_ntVWk1745YDSXU"
+        token = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
