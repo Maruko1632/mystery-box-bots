@@ -31,20 +31,30 @@ box_3000_watches = [
     "Rolex Oyster Perpetual 14233 (Ladies)"
 ]
 
-box_6000_watches = [
-    "Rolex Datejust 16014",
-    "Rolex Datejust 16030",
-    "Rolex Datejust 16234",
-    "Rolex Datejust 16013",
-    "Rolex Datejust 1601"
-]
+box_6000_watches = random.sample(box_3000_watches, len(box_3000_watches))  # reuse randomized
 
 box_7500_watches = [
-    "Omega Speedmaster Moonwatch",
-    "Rolex Oyster Royal",
-    "Omega Moonwatch Chronograph",
-    "Rolex Date 1500",
-    "Omega Mission to the Moon"
+    # Richard Mille watches
+    "Richard Mille RM 035 Rafael Nadal",
+    "Richard Mille RM 11-03 McLaren",
+    "Richard Mille RM 72-01 Flyback Chronograph",
+    "Richard Mille RM 67-02 Extra Flat",
+    "Richard Mille RM 88 Tourbillon Smiley",
+    "Richard Mille RM 16-02 Automatic Extraflat",
+    "Richard Mille RM 27-04 Tourbillon Rafael Nadal",
+    "Richard Mille RM 65-01 Split-Seconds Chronograph",
+    "Richard Mille RM 29 Le Mans",
+    "Richard Mille RM 030 Automatic Winding",
+    # Rolex watches
+    "Rolex Daytona 116503 Black Mother Of Pearl Diamond Dial",
+    "Rolex GMT-Master II 'Pepsi' 126719 BLRO White Gold Blue Dial",
+    "Rolex Submariner Date 116619LB Blue Dial",
+    "Rolex Sky-Dweller 326138 Champagne Dial",
+    "Rolex Yacht-Master II 116689 White Gold",
+    "Rolex Day-Date 128238 Fluted Bezel Champagne Dial",
+    "Rolex Submariner Date 126618LB Blue Dial",
+    "Rolex Sky-Dweller 326238 Black Dial",
+    "Rolex Oyster Perpetual 124300 'Tiffany' Blue Dial"
 ]
 
 WELCOME_MESSAGE = (
@@ -106,15 +116,20 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif box == 'box_7500':
         user7500_counter[user_id] += 1
         if user7500_counter[user_id] % 5 == 0:
-            result = "Omega Mission to the Moon"
+            result = "Richard Mille RM 035 Rafael Nadal"
         else:
-            result = random.choice(box_7500_watches)
+            result = random.choice([w for w in box_7500_watches if w != "Richard Mille RM 035 Rafael Nadal"])
+    else:
+        result = "❌ Invalid box."
 
-    message = f"🎁 You got: *{result}*"
-    await query.message.reply_text(message, reply_markup=get_open_another_keyboard(box), parse_mode="Markdown")
+    open_again_button = [[InlineKeyboardButton(f"🔁 Open another ${box[4:]} box", callback_data=box)]]
+    await query.message.reply_text(f"🎉 You got: {result}", reply_markup=InlineKeyboardMarkup(open_again_button))
 
-if __name__ == "__main__":
+def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_button))
     app.run_polling()
+
+if __name__ == "__main__":
+    main()
