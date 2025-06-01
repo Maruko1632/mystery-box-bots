@@ -51,7 +51,7 @@ def main():
     PORT = int(os.environ.get("PORT", 8443))
     URL = f"https://{os.environ.get('RAILWAY_STATIC_URL')}/"
 
-    app.run_webhook(
+    app.run_polling()
         listen="0.0.0.0",
         port=PORT,
         webhook_url=URL,
