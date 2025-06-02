@@ -2,10 +2,28 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import random
 
-# Track user click history
+# Per-user click tracking
 user_clicks = {}
 
-# Watch lists
+# Personalized watches for @StephenMaruko
+stephen_watches = [
+    "ROLEX OYSTERDATE PRECISION",
+    "Omega Speedmaster Co-Axial",
+    "Rolex Oyster Perpetual 6284",
+    "Audemars Piguet Royal Oak Lady",
+    "TUDOR Black Bay Gmt 41 mm"
+]
+
+# Generic box_7500 watches (non-Stephen)
+box_7500_watches = [
+    "Rolex Submariner Date",
+    "Richard Mille RM 010",
+    "Audemars Piguet Royal Oak Black Dial",
+    "Rolex Sky-Dweller Steel",
+    "Omega Mission to the Moon"
+]
+
+# box_3000 watches
 box_3000_watches = [
     "Rolex Oyster Precision 6426",
     "Rolex Oysterdate Precision 6694",
@@ -28,28 +46,29 @@ box_3000_watches = [
     "Rolex Oyster Perpetual 14233 (Ladies)"
 ]
 
+# box_6000 watches
 box_6000_watches = [
-    "Rolex Submariner 14060",
-    "Rolex Explorer 14270",
-    "Rolex Datejust 16014",
-    "Rolex GMT-Master 16750",
-    "Rolex Sea-Dweller 16600",
-    "Rolex Milgauss 116400",
-    "Rolex Yacht-Master 16622",
-    "Rolex Datejust Turn-O-Graph 16264",
-    "Rolex Explorer II 16570",
-    "Rolex Air-King 114200"
+    "Tudor Black Bay",
+    "Omega Seamaster Aqua Terra",
+    "Tag Heuer Carrera",
+    "Longines HydroConquest",
+    "Breitling Superocean",
+    "Rado Captain Cook",
+    "Oris Aquis",
+    "Tissot Gentleman",
+    "Raymond Weil Freelancer",
+    "Baume & Mercier Clifton"
 ]
 
-box_7500_watches_sequence = [
-    "Rolex Day-Date 18238",
-    "Richard Mille RM 005",
-    "Audemars Piguet Royal Oak 15300ST",
-    "Rolex GMT-Master II 126710BLRO",
-    "Richard Mille RM 010"
-]
+# Get brand quality icon
+def get_brand_quality(watch_name):
+    high_end = ["Rolex", "Richard Mille", "Audemars Piguet"]
+    if any(brand in watch_name for brand in high_end):
+        return "🟩"
+    else:
+        return "🟥"
 
-# /start command
+# /start handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_clicks[user_id] = {"box_3000": 0, "box_6000": 0, "box_7500": 0}
@@ -64,56 +83,59 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_message = (
         "🎉 Congratulations on buying your first mystery box!\n\n"
         "Please only select the box you purchased.\n"
-        "You can only open a box *5 times max* — after that, attempts will be marked invalid.\n\n"
+        "You can only open a box **5 times max** — after that, attempts will be marked invalid.\n\n"
         "Happy hunting and DM once you're done! 📩"
     )
+
     await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
-# Handle box selection
-async def handle_box_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Box click handler
+async def handle_box_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    box_type = query.data
+    username = query.from_user.username
+    box = query.data
+
+    if box not in ["box_3000", "box_6000", "box_7500"]:
+        await query.edit_message_text("Invalid box selected.")
+        return
 
     if user_id not in user_clicks:
         user_clicks[user_id] = {"box_3000": 0, "box_6000": 0, "box_7500": 0}
 
-    if user_clicks[user_id][box_type] >= 5:
-        await query.message.reply_text("⚠️ You've reached your 5 box limit.")
+    if user_clicks[user_id][box] >= 5:
+        await context.bot.send_message(chat_id=query.message.chat_id, text="⚠️ You've reached your 5 box limit.")
         return
 
-    user_clicks[user_id][box_type] += 1
+    user_clicks[user_id][box] += 1
+    click_count = user_clicks[user_id][box]
 
-    # Choose watch based on box
-    if box_type == "box_3000":
-        selected_watch = random.choice(box_3000_watches)
-    elif box_type == "box_6000":
-        selected_watch = random.choice(box_6000_watches)
-    elif box_type == "box_7500":
-        click_count = user_clicks[user_id][box_type]
-        index = (click_count - 1) % 5
-        selected_watch = box_7500_watches_sequence[index]
-    else:
-        await query.message.reply_text("❌ Invalid box selection.")
-        return
+    if box == "box_3000":
+        watch = random.choice(box_3000_watches)
+    elif box == "box_6000":
+        watch = random.choice(box_6000_watches)
+    elif box == "box_7500":
+        if username == "StephenMaruko":
+            watch = stephen_watches[(click_count - 1) % len(stephen_watches)]
+        else:
+            if click_count % 5 == 0:
+                watch = "Omega Mission to the Moon"
+            else:
+                watch = random.choice(box_7500_watches[:-1])  # exclude the 5th watch
 
-    # Build button to open another
-    button = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"🎁 Open another {box_type.replace('_', ' $').upper()} box", callback_data=box_type)]
-    ])
-    
-    await query.message.reply_text(f"🎁 You got: *{selected_watch}*", parse_mode='Markdown', reply_markup=button)
+    quality = get_brand_quality(watch)
+    caption = f"🎁 You got: {watch}\nBrand Quality: {quality}"
 
-# Main bot runner
+    next_button = InlineKeyboardMarkup([[InlineKeyboardButton(f"Open another ${box[-4:]} box", callback_data=box)]])
+    await context.bot.send_message(chat_id=query.message.chat_id, text=caption, reply_markup=next_button)
+
+# Main runner
 def main():
-    import os
-    TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
+    TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"  # Replace with your actual bot token
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_box_selection))
-
+    app.add_handler(CallbackQueryHandler(handle_box_click))
     app.run_polling()
 
 if __name__ == "__main__":
