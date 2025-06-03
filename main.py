@@ -159,7 +159,7 @@ async def handle_box_selection(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def main():
     import os
-    TOKEN = os.environ.get("7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI")
+    TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
