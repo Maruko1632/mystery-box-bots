@@ -1,7 +1,6 @@
 from pathlib import Path
 
-# Final fixed version of the mystery box bot code as a string
-bot_code = """
+bot_code = '''
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import random, asyncio
@@ -21,16 +20,12 @@ box_6000_watches = [
     "Tag Heuer Carrera 🟥", "Rado Captain Cook 🟥"
 ]
 
-box_7500_red = [
-    "Omega Speedmaster Co-Axial 🟥", "TUDOR Black Bay Gmt 41 mm 🟥", "AP Offshore Panda 🟥"
-]
-
-box_7500_green = [
+box_7500_watches = [
     "Rolex Datejust 16234 🟩", "Audemars Piguet Royal Oak 15300 🟩", "Rolex Submariner 16610 🟩",
-    "Rolex GMT-Master II 🟩", "Audemars Piguet Offshore Diver 🟩", "Rolex Yacht-Master 🟩"
+    "Rolex GMT-Master II 🟩", "Audemars Piguet Offshore Diver 🟩", "Rolex Yacht-Master 🟩",
+    "Omega Speedmaster Co-Axial 🟥", "TUDOR Black Bay Gmt 41 mm 🟥", "Omega Seamaster Planet Ocean 🟥",
+    "Richard Mille RM 010 💎", "Richard Mille RM 005 💎"
 ]
-
-box_7500_diamond = ["Richard Mille RM 010 💎", "Richard Mille RM 005 💎"]
 
 stephen_watches = [
     "ROLEX OYSTERDATE PRECISION 🟩", "Omega Speedmaster Co-Axial 🟥", "Rolex Oyster Perpetual 6284 🟩",
@@ -41,18 +36,22 @@ box_condition_messages = [
     "📦 Opening your box...", "🛠 Inspecting contents...", "🧊 Sealed tight… let’s see what’s inside!"
 ]
 
-def generate_7500_combination(include_diamond=False):
-    red = random.sample(box_7500_red, 2)
-    green = random.sample(box_7500_green, 3)
-    combined = red + green
-    if include_diamond and random.random() < 0.33:
-        combined[random.randint(0, 4)] = random.choice(box_7500_diamond)
-    random.shuffle(combined)
-    return combined
+def select_7500_pool(history):
+    diamonds = [w for w in box_7500_watches if "💎" in w]
+    reds = [w for w in box_7500_watches if "🟥" in w and w not in history]
+    greens = [w for w in box_7500_watches if "🟩" in w and w not in history]
+
+    selected = []
+    if history.count("💎") == 0 and random.random() < 0.25:
+        diamond_choice = random.choice(diamonds)
+        selected.append(diamond_choice)
+    selected += random.sample(reds, min(2, len(reds)))
+    selected += random.sample(greens, min(3, len(greens)))
+    return random.choice([w for w in selected if w not in history] or box_7500_watches)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_sessions[user_id] = {"clicks": 0, "history": [], "combo7500": []}
+    user_sessions[user_id] = {"clicks": 0, "history": []}
 
     keyboard = [
         [InlineKeyboardButton("💵 $3000 Mystery Box", callback_data="box_3000")],
@@ -75,62 +74,62 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
 
     if user_id not in user_sessions:
-        user_sessions[user_id] = {"clicks": 0, "history": [], "combo7500": []}
+        user_sessions[user_id] = {"clicks": 0, "history": []}
     session = user_sessions[user_id]
 
-    if session["clicks"] >= 5:
-        await query.message.reply_text("⚠️ You've reached your 5 box limit.\n\n🎲 Hope to see you next month.")
-        return
+    if data.startswith("box_"):
+        box_type = data
+        if session["clicks"] >= 5:
+            await query.message.reply_text("⚠️ You've reached your 5 box limit.\n\n🎲 Hope to see you next month.")
+            return
 
-    box_number = session["clicks"] + 1
-    await query.message.reply_text(f"{random.choice(box_condition_messages)}\n📦 Box {box_number} of 5")
+        session["clicks"] += 1
+        box_number = session["clicks"]
+        await query.message.reply_text(f"{random.choice(box_condition_messages)}\n📦 Box {box_number} of 5")
 
-    if data == "box_7500":
-        if username == "StephenMaruko":
-            watch = stephen_watches[session["clicks"]] if session["clicks"] < len(stephen_watches) else stephen_watches[-1]
+        if box_type == "box_7500":
+            if username == "StephenMaruko":
+                watch = stephen_watches[box_number - 1] if box_number <= 4 else stephen_watches[4]
+            else:
+                if box_number == 5:
+                    watch = "Richard Mille RM 010 💎"
+                else:
+                    watch = select_7500_pool(session["history"])
+        elif box_type == "box_3000":
+            pool = [w for w in box_3000_watches if w not in session["history"]]
+            watch = random.choice(pool) if pool else random.choice(box_3000_watches)
+        elif box_type == "box_6000":
+            pool = [w for w in box_6000_watches if w not in session["history"]]
+            watch = random.choice(pool) if pool else random.choice(box_6000_watches)
         else:
-            if not session["combo7500"]:
-                session["combo7500"] = generate_7500_combination(include_diamond=True)
-            watch = session["combo7500"].pop(0)
+            await query.message.reply_text("Invalid box selected.")
+            return
 
-    elif data == "box_3000":
-        pool = [w for w in box_3000_watches if w not in session["history"]]
-        watch = random.choice(pool) if pool else random.choice(box_3000_watches)
+        session["history"].append(watch)
 
-    elif data == "box_6000":
-        pool = [w for w in box_6000_watches if w not in session["history"]]
-        watch = random.choice(pool) if pool else random.choice(box_6000_watches)
+        buttons = []
+        if session["clicks"] < 5:
+            buttons.append([InlineKeyboardButton(f"Open another ${box_type.split('_')[1]} box", callback_data=box_type)])
+            buttons.append([InlineKeyboardButton("🎯 Select Watch", callback_data="select_watch")])
+        elif session["clicks"] == 5:
+            summary = "\n".join([f"{i+1}. {w}" for i, w in enumerate(session["history"])])
+            summary += f"\n\nSelected: ✅ {watch}"
+            await query.message.reply_text(
+                f"🎉 Congratulations! You've selected your final watch:\n\n"
+                f"{watch}\n\n"
+                "Please contact us to plan pickup or shipping.\n\n"
+                "⚠️ You've reached your 5 box limit.\n\n"
+                f"🧾 Summary of your pulls today:\n{summary}",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎲 Hope to see you next month", callback_data="restart")]])
+            )
+            return
 
-    else:
-        await query.message.reply_text("Invalid box selected.")
-        return
-
-    session["clicks"] += 1
-    session["history"].append(watch)
-
-    buttons = []
-    if session["clicks"] < 5:
-        buttons.append([InlineKeyboardButton(f"Open another ${data.split('_')[1]} box", callback_data=data)])
-        buttons.append([InlineKeyboardButton("🎯 Select Watch", callback_data="select_watch")])
-    else:
-        summary = "\n".join([f"{i+1}. {w}" for i, w in enumerate(session["history"])])
-        summary += f"\n\nSelected: ✅ {watch}"
         await query.message.reply_text(
-            f"🎉 Congratulations! You've selected your final watch:\n\n"
-            f"{watch}\n\n"
-            "Please contact us to plan pickup or shipping.\n\n"
-            "⚠️ You've reached your 5 box limit.\n\n"
-            f"🧾 Summary of your pulls today:\n{summary}",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎲 Hope to see you next month", callback_data="restart")]])
+            f"🎉 You pulled:\n\n{watch}\n\nBrand Quality: {watch.split()[-1]}",
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
-        return
 
-    await query.message.reply_text(
-        f"🎉 You pulled:\n\n{watch}\n\nBrand Quality: {watch.split()[-1]}",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
-
-    if data == "select_watch":
+    elif data == "select_watch":
         if session["history"]:
             selected = session["history"][-1]
             session["clicks"] = 5
@@ -146,7 +145,7 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     elif data == "restart":
-        user_sessions[user_id] = {"clicks": 0, "history": [], "combo7500": []}
+        user_sessions[user_id] = {"clicks": 0, "history": []}
         await start(update, context)
 
 async def main():
@@ -156,12 +155,12 @@ async def main():
     await app.run_polling()
 
 try:
-    asyncio.get_running_loop().create_task(main())
-except RuntimeError:
     asyncio.run(main())
-"""
+except RuntimeError:
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+'''
 
-# Save to file
 file_path = Path("/mnt/data/mystery_box_bot_copy_paste_final.py")
 file_path.write_text(bot_code)
-file_path
+file_path.name
