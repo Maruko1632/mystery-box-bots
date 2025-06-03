@@ -1,145 +1,178 @@
 from pathlib import Path
 
-# Full updated code with 7500 box logic fixed, ensuring:
-# - 2 reds, 2 greens, and a 15% chance of 1 diamond
-# - No back-to-back same quality
-# - Starts with a red
-code = '''import random
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes
-
+# Full, corrected bot code based on the final validated version
+bot_code = '''
+import asyncio
+import random
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+)
 TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
+MAX_OPENS = 5
 
-user_clicks = {}
-user_histories = {}
+user_sessions = {}
 
-red_watches = [
-    "Tudor Black Bay 58", "Omega Seamaster", "TAG Heuer Aquaracer", "Longines HydroConquest",
-    "Oris Aquis Date", "Hamilton Jazzmaster", "Tissot PRX", "Rado Captain Cook"
-]
-
-green_watches = [
-    "Rolex Explorer", "Audemars Piguet Royal Oak", "Rolex Submariner", "Rolex Datejust",
-    "Patek Philippe Aquanaut", "Cartier Santos", "Vacheron Constantin Fiftysix"
-]
-
-diamond_watches = [
-    "Richard Mille RM 011", "Richard Mille RM 035"
-]
-
-BRAND_QUALITY = {
-    "Tudor": "🟥",
-    "Omega": "🟥",
-    "TAG": "🟥",
-    "Longines": "🟥",
-    "Oris": "🟥",
-    "Hamilton": "🟥",
-    "Tissot": "🟥",
-    "Rado": "🟥",
-    "Cartier": "🟩",
-    "Vacheron": "🟩",
-    "Patek": "🟩",
-    "Rolex": "🟩",
-    "Audemars": "🟩",
-    "Richard": "💎"
+BOXES = {
+    "box_3000": [
+        ("Rolex Oyster Precision 6426", "🟩"),
+        ("Rolex Oysterdate Precision 6694", "🟩"),
+        ("Rolex Air-King 5500", "🟩"),
+        ("Omega Seamaster", "🟥"),
+        ("Tissot Visodate", "🟥"),
+        ("Hamilton Jazzmaster", "🟥"),
+        ("Longines HydroConquest", "🟥"),
+        ("Seiko Presage", "🟥"),
+        ("Citizen Promaster", "🟥"),
+    ],
+    "box_6000": [
+        ("Rolex Date 1500", "🟩"),
+        ("Omega Aqua Terra", "🟥"),
+        ("Tudor Black Bay", "🟥"),
+        ("Tag Heuer Carrera", "🟥"),
+        ("Raymond Weil Freelancer", "🟥"),
+        ("Seiko SPB143", "🟥"),
+        ("Longines Master Collection", "🟥"),
+    ],
+    "box_7500": [
+        ("Rolex Submariner", "🟩"),
+        ("Richard Mille RM 005", "💎"),
+        ("Audemars Piguet Royal Oak", "🟩"),
+        ("Rolex Yacht-Master", "🟩"),
+        ("Richard Mille RM 010", "💎"),
+        ("Omega Seamaster", "🟥"),
+        ("Tag Heuer Formula 1", "🟥"),
+        ("Tissot Gentleman", "🟥"),
+        ("Hamilton Khaki", "🟥"),
+    ]
 }
 
-def get_brand_quality(watch_name):
-    for brand, quality in BRAND_QUALITY.items():
-        if brand in watch_name:
-            return quality
-    return "🟥"
+CUSTOM_USERS = {
+    "StephenMaruko": [
+        ("ROLEX OYSTERDATE PRECISION", "🟩"),
+        ("Omega Speedmaster Co-Axial", "🟥"),
+        ("Rolex Oyster Perpetual 6284", "🟩"),
+        ("Audemars Piguet Royal Oak Lady", "🟩"),
+        ("TUDOR Black Bay Gmt 41 mm", "🟥")
+    ]
+}
 
-def generate_7500_box():
-    box = []
-    red_choices = random.sample(red_watches, 2)
-    green_choices = random.sample(green_watches, 2)
-    diamond_choice = random.sample(diamond_watches, 1) if random.random() < 0.15 else []
+def get_box_flavor():
+    return random.choice([
+        "📦 Opening your box…",
+        "🛠 Inspecting contents…",
+        "🧊 Sealed tight… let’s see what’s inside!"
+    ])
 
-    full_box = red_choices + green_choices + diamond_choice
-    random.shuffle(full_box)
+def select_watches(box, username):
+    if box == "box_7500" and username == "StephenMaruko":
+        return CUSTOM_USERS["StephenMaruko"]
+    pool = BOXES[box][:]
+    red = [w for w in pool if w[1] == "🟥"]
+    green = [w for w in pool if w[1] == "🟩"]
+    diamond = [w for w in pool if w[1] == "💎"]
+    random.shuffle(red)
+    random.shuffle(green)
+    selected = [red.pop(), green.pop(), red.pop(), green.pop()]
+    if box == "box_7500" and diamond:
+        selected.append(diamond.pop())
+    random.shuffle(selected[1:])  # Always start with red
+    return [selected[0]] + sorted(selected[1:], key=lambda x: x[1])
 
-    # Ensure first item is red
-    red_first = next((w for w in full_box if get_brand_quality(w) == "🟥"), None)
-    if red_first:
-        full_box.remove(red_first)
-        full_box.insert(0, red_first)
-
-    # Ensure no back-to-back same brand quality
-    for i in range(len(full_box) - 1):
-        while get_brand_quality(full_box[i]) == get_brand_quality(full_box[i + 1]):
-            random.shuffle(full_box[i+1:])
-
-    return full_box[:5]
+def get_session(user_id):
+    if user_id not in user_sessions:
+        user_sessions[user_id] = {"pulls": [], "final": None}
+    return user_sessions[user_id]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    username = update.effective_user.username
-    user_clicks[username] = 0
-    user_histories[username] = []
-    buttons = [
-        [InlineKeyboardButton("$3000 Box", callback_data="box_3000")],
-        [InlineKeyboardButton("$6000 Box", callback_data="box_6000")],
-        [InlineKeyboardButton("$7500 Box", callback_data="box_7500")]
+    user_id = update.effective_user.id
+    user_sessions[user_id] = {"pulls": [], "final": None}
+    keyboard = [
+        [InlineKeyboardButton("💼 $3000 Box", callback_data="box_3000")],
+        [InlineKeyboardButton("🧳 $6000 Box", callback_data="box_6000")],
+        [InlineKeyboardButton("🎁 $7500 Box", callback_data="box_7500")],
     ]
     await update.message.reply_text(
         "🎉 Congratulations on buying your first mystery box!\n\n"
         "Please only select the box you purchased.\n"
         "You can only open a box 5 times max — after that, attempts will be marked invalid.\n\n"
         "Happy hunting and DM once you're done! 📩",
-        reply_markup=InlineKeyboardMarkup(buttons)
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
-async def handle_box_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    username = query.from_user.username
-    box_type = query.data
-
-    if username not in user_clicks:
-        user_clicks[username] = 0
-        user_histories[username] = []
-
-    if user_clicks[username] >= 5:
-        await query.edit_message_text("⚠️ You've reached your 5 box limit.\n"
-                                      "🎉 Congratulations! You've selected your final watch:\n"
-                                      f"✅ {user_histories[username][-1]} \n"
-                                      f"Brand Quality: {get_brand_quality(user_histories[username][-1])}\n\n"
-                                      "Please contact us to plan pickup or shipping.\n\n"
-                                      "🎲 Hope to see you next month.")
-        return
-
-    if box_type == "box_7500":
-        if user_clicks[username] == 0:
-            context.user_data["box7500_watches"] = generate_7500_box()
-        selected_watch = context.user_data["box7500_watches"][user_clicks[username]]
-        brand_quality = get_brand_quality(selected_watch)
-        user_histories[username].append(selected_watch)
-        user_clicks[username] += 1
-
-        message = (
-            f"📦 Box {user_clicks[username]} of 5\n"
-            f"🧊 Sealed tight... let's see what’s inside!\n\n"
-            f"{selected_watch}\n"
-            f"Brand Quality: {brand_quality}"
+    user_id = query.from_user.id
+    session = get_session(user_id)
+    if session["final"]:
+        return await query.edit_message_text("⚠️ You've already selected your final watch.")
+    box = query.data
+    if len(session["pulls"]) >= MAX_OPENS:
+        return await query.edit_message_text(
+            "⚠️ You've reached your 5 box limit.\n\n"
+            "🎉 Congratulations! You've selected your final watch:\n\n"
+            f"{session['pulls'][-1][0]}\n"
+            f"Brand Quality: {session['pulls'][-1][1]}\n\n"
+            "Please contact us to plan pickup or shipping."
         )
+    selected_watches = select_watches(box, query.from_user.username or "")
+    watch = selected_watches[len(session["pulls"]) % 5]
+    session["pulls"].append(watch)
+    flavor = get_box_flavor()
+    progress = f"📦 Box {len(session['pulls'])} of {MAX_OPENS}"
+    text = f"{flavor}\n\n{progress}\n\n🎯 You got:\n{watch[0]}\nBrand Quality: {watch[1]}"
+    buttons = []
+    if len(session["pulls"]) < MAX_OPENS:
+        buttons.append([InlineKeyboardButton(f"Open another {box[-4:]} box", callback_data=box)])
+        buttons.append([InlineKeyboardButton("🎯 Select Watch", callback_data="select")])
+    else:
+        session["final"] = watch
+        buttons.append([InlineKeyboardButton("🎲 Hope to see you next month", callback_data="reset")])
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
-        if user_clicks[username] == 5:
-            message += "\n\n⚠️ You've reached your 5 box limit.\n" \
-                       f"🎉 Congratulations! You've selected your final watch:\n" \
-                       f"✅ {selected_watch} \n" \
-                       f"Brand Quality: {brand_quality}\n\n" \
-                       "Please contact us to plan pickup or shipping.\n\n" \
-                       "🎲 Hope to see you next month."
+async def select(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    session = get_session(user_id)
+    if not session["pulls"]:
+        return await query.edit_message_text("❗ You haven't opened any boxes yet.")
+    session["final"] = session["pulls"][-1]
+    pulls_summary = "\n".join([f"{i+1}. {w[0]}" for i, w in enumerate(session["pulls"])])
+    await query.edit_message_text(
+        f"🧾 Summary of your pulls today:\n\n{pulls_summary}\n\n"
+        f"Selected: ✅ {session['final'][0]}\n\n"
+        "🎉 Congratulations! You've selected your final watch:\n\n"
+        f"{session['final'][0]}\n"
+        f"Brand Quality: {session['final'][1]}\n\n"
+        "Please contact us to plan pickup or shipping.\n\n"
+        "⚠️ You've reached your 5 box limit."
+    )
 
-        await query.edit_message_text(message)
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    return await start(update, context)
 
-application = ApplicationBuilder().token(TOKEN).build()
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CallbackQueryHandler(handle_box_click))
-application.run_polling()
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button, pattern="^box_"))
+    app.add_handler(CallbackQueryHandler(select, pattern="^select$"))
+    app.add_handler(CallbackQueryHandler(reset, pattern="^reset$"))
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
 '''
 
-# Save to file for user to copy
-file_path = Path("/mnt/data/mystery_box_bot_fixed.py")
-file_path.write_text(code)
-file_path
+# Save it to a file so the user can copy or download
+output_path = Path("/mnt/data/mystery_box_bot_final.py")
+output_path.write_text(bot_code)
+output_path
