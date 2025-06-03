@@ -1,145 +1,225 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
-import random, asyncio
+import asyncio
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+)
+import random
 
-user_sessions = {}
+TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
+
+# ============================
+# Watch Pools Configuration
+# ============================
 
 box_3000_watches = [
-    "Rolex Oyster Precision 6426 🟩", "Rolex Oysterdate Precision 6694 🟩", "Rolex Air-King 5500 🟩",
-    "Rolex Oyster Perpetual 1002 🟩", "Rolex Date 1500 🟩", "Rolex Oyster Perpetual 6564 🟩",
-    "Rolex Oyster Perpetual 6430 🟩", "Rolex Oyster Date 6517 🟩", "Rolex Oyster Perpetual 6284 🟩",
-    "Rolex Oyster Precision 1210 🟩", "Rolex Datejust 1601 🟩", "Rolex Oyster Royal 🟩"
+    "Rolex Oyster Precision 6426 🟩", "Rolex Oysterdate Precision 6694 🟩",
+    "Rolex Air-King 5500 🟩", "Rolex Oyster Perpetual 1002 🟩",
+    "Rolex Date 1500 🟩", "Omega Seamaster 🟥", "Tissot Chrono XL 🟥",
+    "Hamilton Jazzmaster 🟥", "Seiko Presage 🟥", "Tag Heuer Formula 1 🟥"
 ]
 
 box_6000_watches = [
-    "Omega Seamaster Aqua Terra 🟥", "Tudor Pelagos FXD 🟥", "Omega Speedmaster Racing 🟥",
-    "Tudor Heritage Chrono 🟥", "Breitling Colt 🟥", "Longines HydroConquest 🟥",
-    "Tag Heuer Carrera 🟥", "Rado Captain Cook 🟥"
+    "Rolex Oyster Perpetual Datejust 1601 🟩", "Omega Seamaster Aqua Terra 🟥",
+    "Tudor Black Bay Fifty-Eight 🟥", "Cartier Santos 🟥", "Longines Spirit 🟥",
+    "Rolex Oyster Perpetual 6618 🟩", "Rolex Oysterdate 6694 Linen Dial 🟩",
+    "Rolex Oyster Perpetual 67193 🟩", "TAG Heuer Aquaracer 🟥", "Breitling Colt 🟥"
 ]
 
-box_7500_watches = [
-    "Rolex Datejust 16234 🟩", "Richard Mille RM 005 💎", "Audemars Piguet Royal Oak 15300 🟩",
-    "Rolex Submariner 16610 🟩", "Richard Mille RM 010 💎", "Rolex GMT-Master II 🟩",
-    "Audemars Piguet Offshore Diver 🟩", "Rolex Yacht-Master 🟩"
+box_7500_pool_general = [
+    "Rolex Submariner Date 🟩", "Richard Mille RM 010 💎",
+    "Audemars Piguet Royal Oak 15450ST 🟩", "Rolex GMT-Master II 🟩",
+    "Richard Mille RM 005 💎", "Omega Planet Ocean 🟥", "Tudor Pelagos 🟥",
+    "IWC Pilot’s Watch 🟥", "Breitling Navitimer 🟥"
 ]
 
-stephen_watches = [
-    "ROLEX OYSTERDATE PRECISION 🟩", "Omega Speedmaster Co-Axial 🟥", "Rolex Oyster Perpetual 6284 🟩",
-    "Audemars Piguet Royal Oak Lady 🟩", "TUDOR Black Bay Gmt 41 mm 🟥"
+box_7500_stephen = [
+    "ROLEX OYSTERDATE PRECISION 🟩",
+    "Omega Speedmaster Co-Axial 🟥",
+    "Rolex Oyster Perpetual 6284 🟩",
+    "Audemars Piguet Royal Oak Lady 🟩",
+    "TUDOR Black Bay GMT 41mm 🟥"
 ]
 
-box_condition_messages = [
-    "📦 Opening your box...", "🛠 Inspecting contents...", "🧊 Sealed tight… let’s see what’s inside!"
-]
+box_7500_fifth_watch = "Omega Mission to the Moon 🟥"
+
+# ============================
+# User Session Tracking
+# ============================
+
+user_sessions = {}
+
+# ============================
+# Message Generators
+# ============================
+
+def get_random_pack(watch_pool):
+    red_watches = [w for w in watch_pool if "🟥" in w]
+    green_watches = [w for w in watch_pool if "🟩" in w or "💎" in w]
+    pack = []
+
+    while True:
+        red_choices = random.sample(red_watches, 2)
+        green_choices = random.sample(green_watches, 3)
+        temp_pack = [red_choices[0], green_choices[0], red_choices[1], green_choices[1], green_choices[2]]
+        if "🟥" not in [temp_pack[1], temp_pack[2]]:  # no back-to-back reds
+            return temp_pack
+
+def get_box_flavor():
+    return random.choice([
+        "📦 Opening your box...",
+        "🛠 Inspecting contents...",
+        "🧊 Sealed tight… let’s see what’s inside!"
+    ])
+
+def get_box_caption(watch, box_num, count):
+    return f"{get_box_flavor()}
+
+📦 Box {count} of 5
+
+🎁 {watch}"
+
+def get_end_summary(pulls, selected):
+    summary = "🧾 Summary of your pulls today:
+
+"
+    for i, w in enumerate(pulls, 1):
+        summary += f"{i}. {w}
+"
+    summary += f"
+Selected: ✅ {selected}
+
+🎲 Hope to see you next month!"
+    return summary
+
+# ============================
+# Handlers
+# ============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_sessions[user_id] = {"clicks": 0, "history": []}
-
+    user_sessions[user_id] = {"box": None, "count": 0, "history": []}
     keyboard = [
         [InlineKeyboardButton("💵 $3000 Mystery Box", callback_data="box_3000")],
         [InlineKeyboardButton("💰 $6000 Mystery Box", callback_data="box_6000")],
         [InlineKeyboardButton("💎 $7500 Mystery Box", callback_data="box_7500")]
     ]
     await update.message.reply_text(
-        "🎉 Congratulations on buying your first mystery box!\n\n"
-        "Please only select the box you purchased.\n"
-        "You can only open a box **5 times max** — after that, attempts will be marked invalid.\n\n"
+        "🎉 Congratulations on buying your first mystery box!
+
+"
+        "Please only select the box you purchased.
+"
+        "You can only open a box *5 times max* — after that, attempts will be marked invalid.
+
+"
         "Happy hunting and DM once you're done! 📩",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
     )
 
-async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     user_id = query.from_user.id
-    username = query.from_user.username or str(user_id)
+    username = query.from_user.username
     data = query.data
-
-    if user_id not in user_sessions:
-        user_sessions[user_id] = {"clicks": 0, "history": []}
-    session = user_sessions[user_id]
+    session = user_sessions.setdefault(user_id, {"box": None, "count": 0, "history": []})
 
     if data.startswith("box_"):
-        box_type = data
-        if session["clicks"] >= 5:
-            await query.message.reply_text("⚠️ You've reached your 5 box limit.\n\n🎲 Hope to see you next month.")
-            return
+        session["box"] = data
+        session["count"] = 0
+        session["history"] = []
 
-        session["clicks"] += 1
-        box_number = session["clicks"]
-        await query.message.reply_text(f"{random.choice(box_condition_messages)}\n📦 Box {box_number} of 5")
+    if session["count"] >= 5:
+        await query.answer()
+        await query.message.reply_text("⚠️ You've reached your 5 box limit.
 
-        if box_type == "box_7500":
-            if username == "StephenMaruko":
-                watch = stephen_watches[box_number - 1] if box_number <= 4 else stephen_watches[4]
-            else:
-                if box_number == 5:
-                    watch = "Richard Mille RM 010 💎"
-                else:
-                    pool = [w for w in box_7500_watches if w not in session["history"]]
-                    watch = random.choice(pool) if pool else random.choice(box_7500_watches)
-        elif box_type == "box_3000":
-            pool = [w for w in box_3000_watches if w not in session["history"]]
-            watch = random.choice(pool) if pool else random.choice(box_3000_watches)
-        elif box_type == "box_6000":
-            pool = [w for w in box_6000_watches if w not in session["history"]]
-            watch = random.choice(pool) if pool else random.choice(box_6000_watches)
+Please use /start to reset.")
+        return
+
+    if session["box"] == "box_3000":
+        pool = get_random_pack(box_3000_watches)
+    elif session["box"] == "box_6000":
+        pool = get_random_pack(box_6000_watches)
+    elif session["box"] == "box_7500":
+        if username == "StephenMaruko":
+            pool = box_7500_stephen
         else:
-            await query.message.reply_text("Invalid box selected.")
-            return
+            pool = get_random_pack(box_7500_pool_general)
+    else:
+        await query.answer("Invalid selection.")
+        return
 
-        session["history"].append(watch)
+    index = session["count"]
+    if session["box"] == "box_7500" and index == 4:
+        watch = box_7500_fifth_watch
+    else:
+        watch = pool[index % len(pool)]
 
-        buttons = []
-        if session["clicks"] < 5:
-            buttons.append([InlineKeyboardButton(f"Open another ${box_type.split('_')[1]} box", callback_data=box_type)])
-            buttons.append([InlineKeyboardButton("🎯 Select Watch", callback_data="select_watch")])
-        elif session["clicks"] == 5:
-            summary = "\n".join([f"{i+1}. {w}" for i, w in enumerate(session["history"])])
-            summary += f"\n\nSelected: ✅ {watch}"
-            await query.message.reply_text(
-                f"🎉 Congratulations! You've selected your final watch:\n\n"
-                f"{watch}\n\n"
-                "Please contact us to plan pickup or shipping.\n\n"
-                "⚠️ You've reached your 5 box limit.\n\n"
-                f"🧾 Summary of your pulls today:\n{summary}",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎲 Hope to see you next month", callback_data="restart")]])
-            )
-            return
+    session["history"].append(watch)
+    session["count"] += 1
 
-        await query.message.reply_text(
-            f"🎉 You pulled:\n\n{watch}\n\nBrand Quality: {watch.split()[-1]}",
-            reply_markup=InlineKeyboardMarkup(buttons)
+    caption = get_box_caption(watch, session['box'], session['count'])
+
+    keyboard = []
+    if session["count"] < 5:
+        keyboard = [[
+            InlineKeyboardButton(f"🎁 Open another {session['box'].split('_')[1]} box", callback_data=session["box"]),
+            InlineKeyboardButton("✅ Select this watch", callback_data="select")
+        ]]
+    elif session["count"] == 5:
+        caption = (
+            f"🎉 Congratulations! You've selected your final watch:
+
+"
+            f"{watch}
+
+Please contact us to plan pickup or shipping.
+
+⚠️ You've reached your 5 box limit."
         )
+        summary = get_end_summary(session["history"], watch)
+        await query.message.reply_text(summary)
 
-    elif data == "select_watch":
-        if session["history"]:
-            selected = session["history"][-1]
-            session["clicks"] = 5
-            summary = "\n".join([f"{i+1}. {w}" for i, w in enumerate(session["history"])])
-            summary += f"\n\nSelected: ✅ {selected}"
-            await query.message.reply_text(
-                f"🎉 Congratulations! You've selected your final watch:\n\n"
-                f"{selected}\n\n"
-                "Please contact us to plan pickup or shipping.\n\n"
-                "⚠️ You've reached your 5 box limit.\n\n"
-                f"🧾 Summary of your pulls today:\n{summary}",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎲 Hope to see you next month", callback_data="restart")]])
-            )
+    await query.answer()
+    await query.message.reply_text(caption, reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
 
-    elif data == "restart":
-        user_sessions[user_id] = {"clicks": 0, "history": []}
-        await start(update, context)
+async def select_watch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    session = user_sessions.get(user_id)
+    if not session or not session["history"]:
+        await update.callback_query.answer("No watch selected yet.")
+        return
+    final_watch = session["history"][-1]
+    summary = (
+        f"🎉 Congratulations! You've selected your final watch:
+
+"
+        f"{final_watch}
+
+Please contact us to plan pickup or shipping.
+
+"
+        "⚠️ You've reached your 5 box limit."
+    )
+    await update.callback_query.message.reply_text(summary)
+
+# ============================
+# Main
+# ============================
 
 async def main():
-    app = ApplicationBuilder().token("7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI").build()
+    app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_box))
+    app.add_handler(CallbackQueryHandler(handle_button, pattern="^box_"))
+    app.add_handler(CallbackQueryHandler(select_watch, pattern="^select$"))
     await app.run_polling()
 
-# Run in async environment
-try:
-    asyncio.get_running_loop().create_task(main())
-except RuntimeError:
+if __name__ == "__main__":
     asyncio.run(main())
