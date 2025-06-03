@@ -2,158 +2,136 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import random
 
-user_clicks = {}
-user_last_message = {}
+TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
 
-watch_boxes = {
-    'box_3000': [
-        "Rolex Oyster Precision 6426",
-        "Rolex Oysterdate Precision 6694",
-        "Rolex Air-King 5500",
-        "Rolex Oyster Perpetual 1002",
-        "Rolex Date 1500"
-    ],
-    'box_6000': [
-        "Rolex Submariner 16610",
-        "Rolex Explorer 214270",
-        "Rolex Datejust II 116300",
-        "Rolex Milgauss 116400",
-        "Rolex Oyster Perpetual 114300"
-    ],
-    'box_7500': [
-        "Rolex Daytona 116500LN",
-        "Richard Mille RM 010",
-        "Audemars Piguet Royal Oak Offshore",
-        "Rolex Yacht-Master II",
-        "Richard Mille RM 055"
-    ]
-}
+# Watch pools
+box_3000 = [ "Rolex Oyster Precision 6426", "Rolex Oysterdate Precision 6694", "Rolex Air-King 5500", "Rolex Oyster Perpetual 1002", "Rolex Date 1500", "Rolex Oyster Perpetual 6564", "Rolex Oyster Perpetual 6430", "Rolex Oyster Date 6517", "Rolex Oyster Perpetual 6284", "Rolex Oyster Perpetual 6718 (ladies)", "Rolex Oyster Precision 1210", "Rolex Oyster Perpetual Datejust 1601", "Rolex Oyster Royal", "Rolex Precision 9022", "Rolex Oyster Perpetual 6618", "Rolex Oyster Perpetual 67193", "Rolex Oyster Perpetual 76193 (Ladies)", "Rolex Oysterdate 6694 Linen Dial", "Rolex Oyster Perpetual 14233 (Ladies)", "Rolex Bubbleback", "Rolex Zephyr", "Rolex Cellini", "Rolex Prince", "Rolex Commando" ]
 
-custom_user = "StephenMaruko"
-custom_7500 = [
-    "ROLEX OYSTERDATE PRECISION",
-    "Omega Speedmaster Co-Axial",
-    "Rolex Oyster Perpetual 6284",
-    "Audemars Piguet Royal Oak Lady",
-    "TUDOR Black Bay Gmt 41 mm"
+box_6000 = [ "Rolex Datejust 16233", "Rolex Explorer II 16570", "Rolex Milgauss 116400", "Rolex GMT-Master 16700", "Rolex Sea-Dweller 16600", "Rolex Submariner 14060", "Rolex Yacht-Master 16622", "Rolex Air-King 14000M", "Rolex Datejust Turn-O-Graph", "Rolex Oysterquartz Datejust", "Rolex Datejust 16014", "Rolex Precision 6426", "Rolex Datejust 116200", "Rolex Air-King 114200", "Rolex Datejust 16030", "Rolex Explorer 1016", "Rolex Submariner 16610", "Rolex GMT-Master II 16710", "Rolex Day-Date 18238", "Rolex Oyster Perpetual 114300", "Rolex Date 15200" ]
+
+box_7500_default = [ "Rolex Sky-Dweller", "Richard Mille RM 11-03", "Audemars Piguet Royal Oak", "Rolex Day-Date 40", "Richard Mille RM 055", "Rolex GMT-Master II Root Beer", "Audemars Piguet Royal Oak Offshore", "Rolex Submariner Date 41mm", "Audemars Piguet Royal Oak Chronograph", "Rolex Yacht-Master II", "Rolex Sea-Dweller Deepsea", "Audemars Piguet Royal Oak Concept", "Patek Philippe Aquanaut", "Patek Philippe Nautilus", "Rolex Sky-Dweller Blue" ]
+
+stephen_watches = [
+    "ROLEX OYSTERDATE PRECISION", "Omega Speedmaster Co-Axial", "Rolex Oyster Perpetual 6284",
+    "Audemars Piguet Royal Oak Lady", "TUDOR Black Bay Gmt 41 mm"
 ]
 
-brand_quality = {
-    'rolex': '🟩',
-    'audemars': '🟩',
-    'richard': '💎',
-    'patek': '🟩'
-}
+user_clicks = {}
+user_history = {}
+final_selection = {}
 
-def get_brand_quality(watch_name):
-    name_lower = watch_name.lower()
-    for brand, emoji in brand_quality.items():
-        if brand in name_lower:
-            return f"{emoji}"
-    return '🟥'
+def get_brand_emoji(watch_name: str):
+    name = watch_name.lower()
+    if "richard mille" in name:
+        return "💎"
+    if any(b in name for b in ["rolex", "audemars", "patek"]):
+        return "🟩"
+    return "🟥"
+
+def get_watch_list(user):
+    return stephen_watches if user == "StephenMaruko" else box_7500_default
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_clicks[user_id] = {'box_3000': 0, 'box_6000': 0, 'box_7500': 0}
-    user_last_message[user_id] = None
-
+    user = update.effective_user.username or str(update.effective_user.id)
+    user_clicks[user] = 0
+    user_history[user] = []
+    final_selection[user] = None
     keyboard = [
         [InlineKeyboardButton("💵 $3000 Mystery Box", callback_data="box_3000")],
         [InlineKeyboardButton("💰 $6000 Mystery Box", callback_data="box_6000")],
         [InlineKeyboardButton("💎 $7500 Mystery Box", callback_data="box_7500")]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
     welcome = (
         "🎉 Congratulations on buying your first mystery box!\n\n"
         "Please only select the box you purchased.\n"
-        "You can only open a box *5 times max* — after that, attempts will be marked invalid.\n\n"
+        "You can only open a box **5 times max** — after that, attempts will be marked invalid.\n\n"
         "Happy hunting and DM once you're done! 📩"
     )
-    await update.message.reply_text(welcome, reply_markup=reply_markup)
+    await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
 
-async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    user = query.from_user
-    username = user.username
-    user_id = user.id
+    user = query.from_user.username or str(query.from_user.id)
+    await query.answer()
     box = query.data
 
-    await query.answer()
-
-    if box not in ['box_3000', 'box_6000', 'box_7500']:
-        await query.edit_message_text("Invalid box selection.")
+    if box not in ["box_3000", "box_6000", "box_7500"]:
         return
 
-    if user_clicks.get(user_id, {}).get(box, 0) >= 5:
-        await query.edit_message_text("⚠️ You've reached your 5 box limit.")
+    if user not in user_clicks:
+        user_clicks[user] = 0
+        user_history[user] = []
+
+    if user_clicks[user] >= 5:
         return
 
-    if user_last_message.get(user_id):
-        try:
-            await context.bot.edit_message_reply_markup(
-                chat_id=user_id,
-                message_id=user_last_message[user_id],
-                reply_markup=None
-            )
-        except:
-            pass
-
-    if box == 'box_7500' and username == custom_user:
-        watch_list = custom_7500
+    if box == "box_3000":
+        pool = box_3000
+    elif box == "box_6000":
+        pool = box_6000
     else:
-        watch_list = watch_boxes[box]
+        pool = get_watch_list(user)
+        if user == "StephenMaruko" and user_clicks[user] == 4:
+            selected = "Omega Mission to the Moon"
+        else:
+            used = user_history[user]
+            options = [w for w in pool if w not in used]
+            selected = random.choice(options)
 
-    count = user_clicks[user_id][box]
-    if box == 'box_7500' and (count + 1) % 5 == 0 and username != custom_user:
-        watch = "Omega Mission to the Moon"
-    else:
-        watch = random.choice(watch_list)
+    if box != "box_7500":
+        used = user_history[user]
+        options = [w for w in pool if w not in used]
+        selected = random.choice(options)
 
-    emoji = get_brand_quality(watch)
-    user_clicks[user_id][box] += 1
-    caption = f"🎁 Box Opened: {watch}\nBrand Quality: {emoji}"
+    emoji = get_brand_emoji(selected)
+    user_clicks[user] += 1
+    user_history[user].append(selected)
+
+    text = f"🎁 You opened:\n\n{selected}\nBrand Quality: {emoji}"
 
     buttons = []
-    if user_clicks[user_id][box] < 5:
-        buttons = [
-            [InlineKeyboardButton(f"Open another ${box[-4:]} box", callback_data=box)],
-            [InlineKeyboardButton("✅ Select this watch", callback_data=f"select_{box}")]
-        ]
-
-    reply_markup = InlineKeyboardMarkup(buttons)
-    sent_msg = await context.bot.send_message(chat_id=user_id, text=caption, reply_markup=reply_markup)
-    user_last_message[user_id] = sent_msg.message_id
-
-    if user_clicks[user_id][box] == 5:
-        final_msg = (
+    if user_clicks[user] < 5:
+        buttons.append([
+            InlineKeyboardButton(f"🔁 Open another {box.replace('box_', '$')} box", callback_data=box),
+            InlineKeyboardButton("✅ Select Watch", callback_data="select")
+        ])
+    else:
+        final_text = (
             f"🎉 Congratulations! You've selected your final watch:\n\n"
-            f"{watch}\nBrand Quality: {emoji}\n\n"
-            f"Please contact us to plan pickup or shipping.\n\n"
-            f"⚠️ You've reached your 5 box limit."
+            f"{selected}\nBrand Quality: {emoji}\n\n"
+            "Please contact us to plan pickup or shipping.\n\n"
+            "⚠️ You've reached your 5 box limit."
         )
-        await context.bot.send_message(chat_id=user_id, text=final_msg)
+        final_selection[user] = selected
+        await query.message.reply_text(final_text)
+        return
 
-async def select_watch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+
+async def handle_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    user_id = query.from_user.id
+    user = query.from_user.username or str(query.from_user.id)
     await query.answer()
 
-    try:
-        await context.bot.edit_message_reply_markup(chat_id=user_id, message_id=query.message.message_id, reply_markup=None)
-    except:
-        pass
+    if not user_history.get(user):
+        return
 
-    await context.bot.send_message(
-        chat_id=user_id,
-        text="✅ Final watch selected! Contact us to arrange pickup or shipping.\n\n⚠️ You've reached your 5 box limit."
+    selected = user_history[user][-1]
+    emoji = get_brand_emoji(selected)
+    final_selection[user] = selected
+    final_msg = (
+        f"🎉 Congratulations! You've selected your final watch:\n\n"
+        f"{selected}\nBrand Quality: {emoji}\n\n"
+        "Please contact us to plan pickup or shipping.\n\n"
+        "⚠️ You've reached your 5 box limit."
     )
+    await query.message.reply_text(final_msg)
 
 def main():
-    app = ApplicationBuilder().token("7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI").build()
+    app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_box, pattern="^box_"))
-    app.add_handler(CallbackQueryHandler(select_watch, pattern="^select_"))
+    app.add_handler(CallbackQueryHandler(handle_button, pattern="^box_"))
+    app.add_handler(CallbackQueryHandler(handle_select, pattern="^select$"))
     app.run_polling()
 
 if __name__ == "__main__":
