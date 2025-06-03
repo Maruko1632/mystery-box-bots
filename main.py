@@ -1,18 +1,17 @@
-from pathlib import Path
-
-# Simulated full working bot code with all requested fixes
-bot_code = """
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import random, asyncio
 
 user_sessions = {}
 
+# Watches for each box
 box_3000_watches = [
-    "Rolex Oyster Precision 6426 🟩", "Rolex Oysterdate Precision 6694 🟩", "Rolex Air-King 5500 🟩",
-    "Rolex Oyster Perpetual 1002 🟩", "Rolex Date 1500 🟩", "Rolex Oyster Perpetual 6564 🟩",
-    "Rolex Oyster Perpetual 6430 🟩", "Rolex Oyster Date 6517 🟩", "Rolex Oyster Perpetual 6284 🟩",
-    "Rolex Oyster Precision 1210 🟩", "Rolex Datejust 1601 🟩", "Rolex Oyster Royal 🟩"
+    "Rolex Oyster Precision 6426 🟩", "Rolex Oysterdate Precision 6694 🟩",
+    "Rolex Air-King 5500 🟩", "Rolex Oyster Perpetual 1002 🟩",
+    "Rolex Date 1500 🟩", "Rolex Oyster Perpetual 6564 🟩",
+    "Rolex Oyster Perpetual 6430 🟩", "Rolex Oyster Date 6517 🟩",
+    "Rolex Oyster Perpetual 6284 🟩", "Rolex Oyster Precision 1210 🟩",
+    "Rolex Datejust 1601 🟩", "Rolex Oyster Royal 🟩"
 ]
 
 box_6000_watches = [
@@ -21,38 +20,32 @@ box_6000_watches = [
     "Tag Heuer Carrera 🟥", "Rado Captain Cook 🟥"
 ]
 
-box_7500_watches = {
-    "🟥": [
-        "Audemars Piguet Code 11.59 🟥", "Vacheron Constantin Fiftysix 🟥"
-    ],
-    "🟩": [
-        "Rolex Datejust 16234 🟩", "Rolex Submariner 16610 🟩",
-        "Rolex GMT-Master II 🟩", "Rolex Yacht-Master 🟩",
-        "Audemars Piguet Royal Oak 15300 🟩", "Audemars Piguet Offshore Diver 🟩"
-    ],
-    "💎": ["Richard Mille RM 005 💎", "Richard Mille RM 010 💎"]
-}
+box_7500_red = [
+    "Omega Seamaster Aqua Terra 🟥", "Tudor Pelagos FXD 🟥", "Breitling Chronomat 🟥",
+    "Hublot Classic Fusion 🟥", "Panerai Luminor Base 🟥"
+]
+
+box_7500_green = [
+    "Rolex Datejust 16234 🟩", "Audemars Piguet Royal Oak 15300 🟩",
+    "Rolex Submariner 16610 🟩", "Rolex GMT-Master II 🟩",
+    "Audemars Piguet Offshore Diver 🟩", "Rolex Yacht-Master 🟩"
+]
+
+box_7500_diamond = ["Richard Mille RM 005 💎", "Richard Mille RM 010 💎"]
 
 stephen_watches = [
-    "ROLEX OYSTERDATE PRECISION 🟩", "Omega Speedmaster Co-Axial 🟥", "Rolex Oyster Perpetual 6284 🟩",
-    "Audemars Piguet Royal Oak Lady 🟩", "TUDOR Black Bay Gmt 41 mm 🟥"
+    "ROLEX OYSTERDATE PRECISION 🟩", "Omega Speedmaster Co-Axial 🟥",
+    "Rolex Oyster Perpetual 6284 🟩", "Audemars Piguet Royal Oak Lady 🟩",
+    "TUDOR Black Bay Gmt 41 mm 🟥"
 ]
 
 box_condition_messages = [
     "📦 Opening your box...", "🛠 Inspecting contents...", "🧊 Sealed tight… let’s see what’s inside!"
 ]
 
-def get_7500_random():
-    reds = random.sample(box_7500_watches["🟥"], 2)
-    greens = random.sample(box_7500_watches["🟩"], 2)
-    diamond = random.sample(box_7500_watches["💎"], 1) if random.random() < 0.3 else []
-    picks = reds + greens + diamond
-    random.shuffle(picks)
-    return picks[:5]
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_sessions[user_id] = {"clicks": 0, "history": [], "7500_pool": get_7500_random()}
+    user_sessions[user_id] = {"clicks": 0, "history": [], "diamond_used": False}
 
     keyboard = [
         [InlineKeyboardButton("💵 $3000 Mystery Box", callback_data="box_3000")],
@@ -62,10 +55,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🎉 Congratulations on buying your first mystery box!\n\n"
         "Please only select the box you purchased.\n"
-        "You can only open a box 5 times max — after that, attempts will be marked invalid.\n\n"
+        "You can only open a box **5 times max** — after that, attempts will be marked invalid.\n\n"
         "Happy hunting and DM once you're done! 📩",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
+def get_balanced_box_7500(session):
+    # Return a selection of 5 watches: 2 red, 3 green, 1 optional diamond (max 1)
+    selected = []
+
+    # Force 2 red
+    selected += random.sample(box_7500_red, 2)
+    # 3 green if no diamond yet, or 2 green + 1 diamond
+    diamond_used = session.get("diamond_used", False)
+    if not diamond_used and random.random() < 0.2:  # ~20% chance of diamond
+        selected += random.sample(box_7500_green, 2)
+        diamond = random.choice(box_7500_diamond)
+        session["diamond_used"] = True
+        selected.append(diamond)
+    else:
+        selected += random.sample(box_7500_green, 3)
+
+    random.shuffle(selected)
+    return selected
 
 async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -75,7 +87,7 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
 
     if user_id not in user_sessions:
-        user_sessions[user_id] = {"clicks": 0, "history": [], "7500_pool": get_7500_random()}
+        user_sessions[user_id] = {"clicks": 0, "history": [], "diamond_used": False}
     session = user_sessions[user_id]
 
     if data.startswith("box_"):
@@ -86,22 +98,23 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         session["clicks"] += 1
         box_number = session["clicks"]
-        await query.message.reply_text(f"{random.choice(box_condition_messages)}\n📦 Box {box_number} of 5")
+        await query.message.reply_text(
+            f"{random.choice(box_condition_messages)}\n📦 Box {box_number} of 5"
+        )
 
+        # Select watch logic
         if box_type == "box_7500":
             if username == "StephenMaruko":
                 watch = stephen_watches[box_number - 1] if box_number <= 4 else stephen_watches[4]
             else:
-                if box_number == 5:
-                    watch = "Richard Mille RM 010 💎"
-                else:
-                    watch = session["7500_pool"][box_number - 1]
+                if box_number == 1:
+                    session["box_7500_pool"] = get_balanced_box_7500(session)
+                pool = session.get("box_7500_pool", get_balanced_box_7500(session))
+                watch = pool[box_number - 1]
         elif box_type == "box_3000":
-            pool = [w for w in box_3000_watches if w not in session["history"]]
-            watch = random.choice(pool) if pool else random.choice(box_3000_watches)
+            watch = random.choice(box_3000_watches)
         elif box_type == "box_6000":
-            pool = [w for w in box_6000_watches if w not in session["history"]]
-            watch = random.choice(pool) if pool else random.choice(box_6000_watches)
+            watch = random.choice(box_6000_watches)
         else:
             await query.message.reply_text("Invalid box selected.")
             return
@@ -113,12 +126,11 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
             buttons.append([InlineKeyboardButton(f"Open another ${box_type.split('_')[1]} box", callback_data=box_type)])
             buttons.append([InlineKeyboardButton("🎯 Select Watch", callback_data="select_watch")])
         elif session["clicks"] == 5:
-            selected = watch
             summary = "\n".join([f"{i+1}. {w}" for i, w in enumerate(session["history"])])
-            summary += f"\n\nSelected: ✅ {selected}"
+            summary += f"\n\nSelected: ✅ {watch}"
             await query.message.reply_text(
                 f"🎉 Congratulations! You've selected your final watch:\n\n"
-                f"{selected}\n\n"
+                f"{watch}\n\n"
                 "Please contact us to plan pickup or shipping.\n\n"
                 "⚠️ You've reached your 5 box limit.\n\n"
                 f"🧾 Summary of your pulls today:\n{summary}",
@@ -147,7 +159,7 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     elif data == "restart":
-        user_sessions[user_id] = {"clicks": 0, "history": [], "7500_pool": get_7500_random()}
+        user_sessions[user_id] = {"clicks": 0, "history": [], "diamond_used": False}
         await start(update, context)
 
 async def main():
@@ -156,13 +168,8 @@ async def main():
     app.add_handler(CallbackQueryHandler(handle_box))
     await app.run_polling()
 
+# Run in async environment
 try:
     asyncio.get_running_loop().create_task(main())
 except RuntimeError:
     asyncio.run(main())
-"""
-
-# Save to a downloadable file
-file_path = Path("/mnt/data/mystery_box_bot_final_copy_paste.py")
-file_path.write_text(bot_code)
-file_path.name
