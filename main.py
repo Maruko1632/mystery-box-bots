@@ -106,9 +106,14 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     used = user_history[user]
     options = [w for w in pool if w not in used]
-    if not options:
-        return
-    selected = random.choice(options)
+
+    # Always return first fixed watch on first click for special users
+    if user_clicks[user] == 0 and user == "Crypto_Saicho":
+        selected = "Omega Speedmaster Moonwatch"
+    elif user_clicks[user] == 0 and user == "StephenMaruko":
+        selected = "TUDOR Black Bay Gmt"
+    else:
+        selected = random.choice(options)
 
     stars = get_brand_stars(selected)
     user_clicks[user] += 1
