@@ -1,7 +1,11 @@
 from pathlib import Path
 
-bot_code = '''
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+# Create the correct directory if it doesn't exist
+output_dir = Path("/mnt/data")
+output_dir.mkdir(parents=True, exist_ok=True)
+
+# Prepare the fixed bot code
+bot_code = '''from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import random, asyncio
 
@@ -20,17 +24,17 @@ box_6000_watches = [
     "Tag Heuer Carrera 🟥", "Rado Captain Cook 🟥"
 ]
 
-box_7500_red = [
-    "Omega Speedmaster Racing 🟥", "Tudor Pelagos FXD 🟥", "Tag Heuer Carrera 🟥"
+box_7500_watches_red = [
+    "Omega Speedmaster Racing 🟥", "Tudor Pelagos FXD 🟥", "Omega Seamaster Aqua Terra 🟥",
+    "TUDOR Black Bay Gmt 41 mm 🟥"
 ]
 
-box_7500_green = [
-    "Rolex Datejust 16234 🟩", "Audemars Piguet Royal Oak 15300 🟩",
-    "Rolex Submariner 16610 🟩", "Rolex GMT-Master II 🟩",
-    "Audemars Piguet Offshore Diver 🟩", "Rolex Yacht-Master 🟩"
+box_7500_watches_green = [
+    "Rolex Datejust 16234 🟩", "Audemars Piguet Royal Oak 15300 🟩", "Rolex Submariner 16610 🟩",
+    "Rolex GMT-Master II 🟩", "Audemars Piguet Offshore Diver 🟩", "Rolex Yacht-Master 🟩"
 ]
 
-box_7500_diamond = [
+box_7500_watches_diamond = [
     "Richard Mille RM 005 💎", "Richard Mille RM 010 💎"
 ]
 
@@ -43,20 +47,9 @@ box_condition_messages = [
     "📦 Opening your box...", "🛠 Inspecting contents...", "🧊 Sealed tight… let’s see what’s inside!"
 ]
 
-def generate_7500_combo(history):
-    result = []
-    diamond_added = any("💎" in w for w in history)
-    reds = random.sample(box_7500_red, 2)
-    greens = random.sample(box_7500_green, 3)
-    result.extend(reds + greens)
-    if not diamond_added and random.random() < 0.4:
-        result[random.randint(0, 4)] = random.choice(box_7500_diamond)
-    random.shuffle(result)
-    return result
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_sessions[user_id] = {"clicks": 0, "history": [], "7500_pool": []}
+    user_sessions[user_id] = {"clicks": 0, "history": []}
 
     keyboard = [
         [InlineKeyboardButton("💵 $3000 Mystery Box", callback_data="box_3000")],
@@ -79,7 +72,7 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
 
     if user_id not in user_sessions:
-        user_sessions[user_id] = {"clicks": 0, "history": [], "7500_pool": []}
+        user_sessions[user_id] = {"clicks": 0, "history": []}
     session = user_sessions[user_id]
 
     if data.startswith("box_"):
@@ -94,11 +87,18 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if box_type == "box_7500":
             if username == "StephenMaruko":
-                watch = stephen_watches[box_number - 1] if box_number <= 4 else stephen_watches[4]
+                watch = stephen_watches[box_number - 1] if box_number <= 5 else stephen_watches[-1]
+            elif box_number == 5:
+                watch = "Richard Mille RM 010 💎"
             else:
-                if not session["7500_pool"]:
-                    session["7500_pool"] = generate_7500_combo(session["history"])
-                watch = session["7500_pool"].pop()
+                # Ensure 2 red, 3 green, no duplicates, never 2 red in a row
+                prev_watch = session["history"][-1] if session["history"] else ""
+                reds = [w for w in box_7500_watches_red if w not in session["history"]]
+                greens = [w for w in box_7500_watches_green if w not in session["history"]]
+                if box_number == 1 or (prev_watch and prev_watch.endswith("🟩")):
+                    watch = random.choice(reds) if reds else random.choice(box_7500_watches_red)
+                else:
+                    watch = random.choice(greens) if greens else random.choice(box_7500_watches_green)
         elif box_type == "box_3000":
             pool = [w for w in box_3000_watches if w not in session["history"]]
             watch = random.choice(pool) if pool else random.choice(box_3000_watches)
@@ -149,7 +149,7 @@ async def handle_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     elif data == "restart":
-        user_sessions[user_id] = {"clicks": 0, "history": [], "7500_pool": []}
+        user_sessions[user_id] = {"clicks": 0, "history": []}
         await start(update, context)
 
 async def main():
@@ -164,6 +164,8 @@ except RuntimeError:
     asyncio.run(main())
 '''
 
-file_path = Path("/mnt/data/mystery_box_bot_copy_paste_final.py")
+# Save to a new .py file
+file_path = output_dir / "mystery_box_bot_copy_paste_final.py"
 file_path.write_text(bot_code)
-file_path
+
+file_path.name
