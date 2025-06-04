@@ -6,37 +6,38 @@ TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
 
 # Watch pools
 box_3000 = [
-    "Rolex Oyster Precision 6426", "Rolex Oysterdate Precision 6694", "Rolex Air-King 5500",
-    "Rolex Oyster Perpetual 1002", "Rolex Date 1500", "Rolex Oyster Perpetual 6564",
-    "Rolex Oyster Perpetual 6430", "Rolex Oyster Date 6517", "Rolex Oyster Perpetual 6284",
-    "Rolex Oyster Perpetual 6718 (ladies)", "Rolex Oyster Precision 1210", "Rolex Oyster Perpetual Datejust 1601",
-    "Rolex Oyster Royal", "Rolex Precision 9022", "Rolex Oyster Perpetual 6618",
-    "Omega Speedmaster Co-Axial", "Omega Seamaster Aqua Terra", "Omega De Ville Prestige", "Omega Constellation Quartz",
-    "Tudor Black Bay GMT", "Tudor Heritage Chrono", "Tudor Pelagos", "Tudor Prince Date",
-    "Longines HydroConquest", "Tissot PRX", "TAG Heuer Formula 1", "Baume & Mercier Clifton"
+    "Rolex Oysterdate Precision 6694", "Omega Seamaster", "Tudor Black Bay", "Rolex Air-King 5500",
+    "Omega Speedmaster Date", "Tudor Prince", "Omega Seamaster Aqua Terra", "Tudor Glamour",
+    "Rolex Date 1500", "Omega Genève", "Tudor Style", "Rolex Oyster Precision 6426",
+    "Omega De Ville", "Tudor Heritage Chrono"
 ]
 
 box_6000 = [
-    "Rolex Datejust 16233", "Rolex Explorer II 16570", "Rolex Milgauss 116400", "Rolex GMT-Master 16700",
-    "Rolex Sea-Dweller 16600", "Rolex Submariner 14060", "Rolex Yacht-Master 16622", "Rolex Air-King 14000M",
-    "Rolex Datejust Turn-O-Graph", "Rolex Oysterquartz Datejust", "Rolex Datejust 16014", "Rolex Precision 6426",
-    "Rolex Datejust 116200", "Rolex Air-King 114200", "Rolex Datejust 16030",
-    "Omega Speedmaster Reduced", "Omega Railmaster", "Omega Seamaster 300",
-    "Tudor Glamour Double Date", "Tudor Clair de Rose", "Oris Aquis Date", "Raymond Weil Freelancer"
+    "Rolex Explorer II 16570", "Omega Speedmaster Racing", "Tudor Pelagos", "Rolex Submariner 14060",
+    "Omega Constellation", "Tudor Grantour", "Rolex GMT-Master 16700", "Tudor North Flag",
+    "Omega Planet Ocean", "Tudor Heritage Black Bay", "Rolex Datejust 16014", "Tudor Submariner"
 ]
 
 box_7500_default = [
-    "Rolex Sky-Dweller", "Richard Mille RM 11-03", "Audemars Piguet Royal Oak", "Rolex Day-Date 40",
-    "Richard Mille RM 055", "Rolex GMT-Master II Root Beer", "Audemars Piguet Royal Oak Offshore",
-    "Rolex Submariner Date 41mm", "Audemars Piguet Royal Oak Chronograph", "Rolex Yacht-Master II",
-    "Rolex Sea-Dweller Deepsea", "Audemars Piguet Royal Oak Concept", "Patek Philippe Aquanaut",
-    "Patek Philippe Nautilus", "Rolex Sky-Dweller Blue",
-    "Omega Genève", "Omega Seamaster Planet Ocean", "Tudor Submariner", "Tudor Fastrider", "Rado Centrix"
+    "Rolex Sky-Dweller", "Richard Mille RM 11-03", "Audemars Piguet Royal Oak", "Patek Philippe Aquanaut",
+    "Omega Speedmaster Co-Axial", "Tudor Royal", "Omega Dark Side of the Moon", "Tudor Chronograph",
+    "Omega Speedmaster '57", "Tudor Pelagos FXD", "Audemars Piguet Royal Oak Chronograph"
 ]
 
 stephen_watches = [
-    "ROLEX OYSTERDATE PRECISION", "Omega Speedmaster Co-Axial", "Rolex Oyster Perpetual 6284",
-    "Audemars Piguet Royal Oak Lady", "TUDOR Black Bay Gmt 41 mm"
+    "Audemars Piguet Royal Oak",
+    "Rolex Datejust 16233",
+    "Rolex Submariner 14060",
+    "Rolex Oyster Perpetual 1002",
+    "Rolex Day-Date 40"
+]
+
+crypto_saicho_watches = [
+    "Rolex Oyster Precision 6426",
+    "Omega Speedster",
+    "Tudor Royal",
+    "Richard Mille RM010",
+    "Rolex Date 1500"
 ]
 
 user_clicks = {}
@@ -45,16 +46,21 @@ final_selection = {}
 
 def get_brand_stars(watch_name: str):
     name = watch_name.lower()
-    if any(b in name for b in ["rolex", "patek", "richard mille", "audemars"]):
+    if any(b in name for b in ["rolex", "richard mille", "audemars", "patek"]):
         return "⭐️⭐️⭐️⭐️⭐️"
-    elif "omega" in name:
+    if any(b in name for b in ["omega", "swiss"]):
         return "⭐️⭐️"
-    elif any(b in name for b in ["tudor", "longines", "tissot", "tag", "oris", "rado", "raymond", "baume"]):
+    if "tudor" in name:
         return "⭐️⭐️"
-    return "⭐️"
+    return ""
 
 def get_watch_list(user):
-    return stephen_watches if user == "StephenMaruko" else box_7500_default
+    if user == "StephenMaruko":
+        return stephen_watches
+    elif user == "Crypto_Saicho":
+        return crypto_saicho_watches
+    else:
+        return box_7500_default
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user.username or str(update.effective_user.id)
@@ -67,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💎 $7500 Mystery Box", callback_data="box_7500")]
     ]
     welcome = (
-        "🎁 Welcome to The Watch King Mystery Box!\n\n"
+        "🎉 Congratulations on buying your first mystery box!\n\n"
         "Please only select the box you purchased.\n"
         "You can only open a box **5 times max** — after that, attempts will be marked invalid.\n\n"
         "Happy hunting and DM once you're done! 📩"
@@ -108,9 +114,9 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         options = [w for w in pool if w not in used]
         selected = random.choice(options)
 
-    stars = get_brand_stars(selected)
     user_clicks[user] += 1
     user_history[user].append(selected)
+    stars = get_brand_stars(selected)
 
     text = f"🎁 You opened:\n\n{selected}\nBrand Quality: {stars}"
 
