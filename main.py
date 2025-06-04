@@ -1,117 +1,132 @@
-from pathlib import Path
-
-# Load the final corrected version of the mystery box bot with all features preserved
-bot_code = """
 import logging
 import random
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# TOKEN setup (replace this with your actual token)
 TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
 
-# Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+# User click history and limits
+user_clicks = {}
 
 # Watch pools
 box_3000 = [
-    {"name": "Tudor Black Bay", "quality": "🟩"},
-    {"name": "Cartier Tank", "quality": "🟥"},
-    {"name": "Tag Heuer Carrera", "quality": "🟩"},
-    {"name": "Oris Aquis", "quality": "🟩"},
+    {"name": "Tissot Gentleman", "quality": "🟩"},
     {"name": "Longines HydroConquest", "quality": "🟥"},
+    {"name": "Hamilton Jazzmaster", "quality": "🟩"},
+    {"name": "Seiko Presage", "quality": "🟩"},
+    {"name": "Mido Ocean Star", "quality": "🟥"},
 ]
 
 box_6000 = [
+    {"name": "Tudor Black Bay", "quality": "🟥"},
+    {"name": "Tag Heuer Carrera", "quality": "🟩"},
+    {"name": "Oris Aquis", "quality": "🟩"},
+    {"name": "Rado Captain Cook", "quality": "🟥"},
+    {"name": "Raymond Weil Freelancer", "quality": "🟩"},
+]
+
+box_7500 = [
     {"name": "Omega Seamaster", "quality": "🟥"},
-    {"name": "Breitling Navitimer", "quality": "🟩"},
     {"name": "IWC Pilot", "quality": "🟩"},
     {"name": "Cartier Santos", "quality": "🟥"},
     {"name": "Zenith Chronomaster", "quality": "🟩"},
+    {"name": "Breitling Navitimer", "quality": "🟩"},
 ]
 
-default_7500_pool = [
-    {"name": "Rolex Datejust", "quality": "🟥"},
-    {"name": "Omega Speedmaster", "quality": "🟩"},
-    {"name": "Panerai Luminor", "quality": "🟩"},
-    {"name": "Hublot Classic Fusion", "quality": "🟥"},
-    {"name": "Tudor Pelagos", "quality": "🟩"},
-]
 special_watch = {"name": "Omega Mission to the Moon", "quality": "💎"}
 
-stephen_custom_pool = [
-    {"name": "Audemars Piguet Royal Oak", "quality": "💎"},
-    {"name": "Rolex Submariner", "quality": "🟥"},
-    {"name": "Patek Philippe Nautilus", "quality": "💎"},
-    {"name": "Omega Speedmaster '57", "quality": "🟩"},
-    {"name": "IWC Portugieser", "quality": "🟩"},
-]
+def get_random_watches(pool):
+    selected = []
+    reds = [w for w in pool if w["quality"] == "🟥"]
+    greens = [w for w in pool if w["quality"] == "🟩"]
+    selected.append(random.choice(reds))
+    greens_selected = random.sample(greens, 3)
+    selected += greens_selected
+    reds.remove(selected[0])
+    selected.append(random.choice(reds))
+    random.shuffle(selected)
+    return selected
 
-user_data = {}
+def get_user_clicks(user_id):
+    return user_clicks.setdefault(user_id, {"clicks": 0, "history": []})
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_data[user_id] = {
-        "click_count": 0,
-        "history": [],
-    }
-    keyboard = [
-        [InlineKeyboardButton("🎁 Open $3000 Box", callback_data='box_3000')],
-        [InlineKeyboardButton("🎁 Open $6000 Box", callback_data='box_6000')],
-        [InlineKeyboardButton("🎁 Open $7500 Box", callback_data='box_7500')],
+    user_clicks[user_id] = {"clicks": 0, "history": []}
+    buttons = [
+        [InlineKeyboardButton("🎁 Open $3,000 Box", callback_data="box_3000")],
+        [InlineKeyboardButton("🎁 Open $6,000 Box", callback_data="box_6000")],
+        [InlineKeyboardButton("🎁 Open $7,500 Box", callback_data="box_7500")],
     ]
-    await update.message.reply_text("Welcome to The Watch King Mystery Box Bot!\nSelect a box to open:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("Choose a mystery box:", reply_markup=InlineKeyboardMarkup(buttons))
 
-def get_box_watches(user_id, box_type):
-    if box_type == "box_7500":
-        pool = stephen_custom_pool if user_id == 123456789 else default_7500_pool
-        click_count = user_data[user_id]["click_count"]
-        if click_count == 4:
-            return [special_watch]
-        return random.sample(pool, 5)
-    return random.sample(box_3000 if box_type == "box_3000" else box_6000, 5)
-
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def open_box(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     user_id = query.from_user.id
-    box_type = query.data
+    await query.answer()
+    clicks = get_user_clicks(user_id)
 
-    if user_id not in user_data:
-        user_data[user_id] = {"click_count": 0, "history": []}
-
-    if user_data[user_id]["click_count"] >= 5:
+    if clicks["clicks"] >= 5:
         await query.edit_message_text("⚠️ You've reached your 5 box limit.")
         return
 
-    watches = get_box_watches(user_id, box_type)
-    selected_watch = watches[0]
-
-    user_data[user_id]["click_count"] += 1
-    user_data[user_id]["history"].append(selected_watch)
-
-    message = f"🎉 You pulled: {selected_watch['name']} {selected_watch['quality']}\n\n"
-    message += f"Box: {box_type.upper()} | Pull #{user_data[user_id]['click_count']}/5"
-
-    keyboard = []
-    if user_data[user_id]["click_count"] < 5:
-        keyboard.append([InlineKeyboardButton("🔁 Open another box", callback_data=box_type)])
+    box_type = query.data
+    if box_type == "box_3000":
+        pool = box_3000
+    elif box_type == "box_6000":
+        pool = box_6000
     else:
-        message += "\n\n⚠️ You've reached your 5 box limit."
+        if clicks["clicks"] == 4:
+            selected_watch = special_watch
+        else:
+            pool = box_7500
+            selected_watch = random.choice(pool)
 
-    await query.edit_message_text(message, reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
+    if box_type in ["box_3000", "box_6000"]:
+        selected_watch = random.choice(pool)
 
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(button))
+    clicks["clicks"] += 1
+    clicks["history"].append(selected_watch)
+
+    response = (
+        f"🎉 You pulled: {selected_watch['name']}
+"
+        f"Brand Quality: {selected_watch['quality']}
+
+"
+        f"({clicks['clicks']}/5 openings used)"
+    )
+
+    if clicks["clicks"] < 5:
+        buttons = [
+            [InlineKeyboardButton("🔁 Open Another", callback_data=box_type)],
+            [InlineKeyboardButton("✅ Select Watch", callback_data="select_watch")]
+        ]
+    else:
+        buttons = [
+            [InlineKeyboardButton("✅ Select Watch", callback_data="select_watch")]
+        ]
+
+    await query.edit_message_text(response, reply_markup=InlineKeyboardMarkup(buttons))
+
+async def select_watch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    await query.answer()
+    last_pull = user_clicks.get(user_id, {}).get("history", [])[-1] if user_clicks.get(user_id) else None
+    if last_pull:
+        msg = f"🎯 You've selected: {last_pull['name']} - Brand Quality: {last_pull['quality']}"
+    else:
+        msg = "❗ No watch selected yet."
+    await query.edit_message_text(msg)
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(open_box, pattern="^box_"))
+    app.add_handler(CallbackQueryHandler(select_watch, pattern="^select_watch$"))
+    app.run_polling()
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(app.run_polling())
-"""
-
-# Save the corrected final version
-output_path = Path("/mnt/data/mystery_box_bot_final_fixed_full.py")
-output_path.write_text(bot_code)
-output_path
+    main()
