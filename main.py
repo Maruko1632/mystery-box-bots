@@ -1,110 +1,93 @@
-from pathlib import Path
-
-# Fixed complete mystery box bot code with TOKEN= format
-bot_code = """
 import logging
 import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
 TOKEN = "7561016807:AAGjG4IwayZLMMYSQmTs6zeLBDCgIWVemcI"
 
-# Logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-
-# Per-user click tracking
-user_clicks = {}
-
-# Watch pools
-box_3000 = [
-    ("Tudor Black Bay", "🟥"), ("Longines HydroConquest", "🟩"),
-    ("Oris Aquis Date", "🟩"), ("Tag Heuer Formula 1", "🟩"),
-    ("Hamilton Khaki Field", "🟥")
-]
-
-box_6000 = [
-    ("Omega Seamaster", "🟩"), ("Breitling Superocean", "🟩"),
-    ("Grand Seiko GMT", "🟥"), ("Tag Heuer Carrera", "🟥"),
-    ("Zenith Elite", "🟩")
-]
-
-box_7500 = [
-    ("Rolex Datejust", "🟩"), ("Omega Speedmaster", "🟥"),
-    ("Panerai Luminor", "🟥"), ("IWC Portofino", "🟩"),
-    ("Hublot Classic Fusion", "🟩")
-]
-
-omega_special = "💎 Omega Mission to the Moon"
-
-def generate_watches(box, user_id, box_name):
-    if user_id == "StephenMaruko" and box_name == "7500":
-        custom_list = [
-            ("AP Royal Oak", "💎"), ("Richard Mille RM010", "💎"),
-            ("Rolex Daytona", "💎"), ("Patek Philippe Nautilus", "💎"),
-            ("Omega Mission to the Moon", "💎")
+# Watch data organized by box tier
+box_data = {
+    "3000": {
+        "watches": [
+            {"name": "Tissot PRX", "brand": "Tissot", "quality": "🟩"},
+            {"name": "Hamilton Khaki Field", "brand": "Hamilton", "quality": "🟩"},
+            {"name": "Oris Aquis", "brand": "Oris", "quality": "🟥"},
+            {"name": "Longines HydroConquest", "brand": "Longines", "quality": "🟥"},
+            {"name": "Sinn 556", "brand": "Sinn", "quality": "🟥"}
         ]
-        return custom_list if (user_clicks[user_id]["count"] + 1) % 5 == 0 else random.sample(custom_list, 5)
-    if box_name == "7500" and (user_clicks[user_id]["count"] + 1) % 5 == 0:
-        return [("Omega Mission to the Moon", "💎")] * 5
-    return random.sample(box, 5)
+    },
+    "6000": {
+        "watches": [
+            {"name": "Omega Seamaster", "brand": "Omega", "quality": "🟥"},
+            {"name": "Tudor Black Bay", "brand": "Tudor", "quality": "🟥"},
+            {"name": "Breitling Superocean", "brand": "Breitling", "quality": "🟥"},
+            {"name": "Tag Heuer Monaco", "brand": "Tag Heuer", "quality": "🟩"},
+            {"name": "Nomos Tangente", "brand": "Nomos", "quality": "🟩"}
+        ]
+    },
+    "7500": {
+        "watches": [
+            {"name": "Rolex Datejust", "brand": "Rolex", "quality": "💎"},
+            {"name": "Cartier Santos", "brand": "Cartier", "quality": "💎"},
+            {"name": "Omega Speedmaster", "brand": "Omega", "quality": "🟥"},
+            {"name": "Grand Seiko Snowflake", "brand": "Grand Seiko", "quality": "🟩"},
+            {"name": "Panerai Luminor", "brand": "Panerai", "quality": "🟩"},
+            {"name": "Omega Mission to the Moon", "brand": "Omega", "quality": "💎"}  # Guaranteed every 5th pull
+        ]
+    }
+}
+
+user_sessions = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.effective_user.username or update.effective_user.id)
-    user_clicks[user_id] = {"count": 0, "history": []}
-
+    user_id = update.effective_user.id
+    user_sessions[user_id] = {"clicks": 0}
     keyboard = [
-        [InlineKeyboardButton("$3000 Mystery Box", callback_data="box_3000")],
-        [InlineKeyboardButton("$6000 Mystery Box", callback_data="box_6000")],
-        [InlineKeyboardButton("$7500 Mystery Box", callback_data="box_7500")]
+        [InlineKeyboardButton("$3000 Box", callback_data="box_3000")],
+        [InlineKeyboardButton("$6000 Box", callback_data="box_6000")],
+        [InlineKeyboardButton("$7500 Box", callback_data="box_7500")]
     ]
-    await update.message.reply_text("🎉 Welcome to the Mystery Box Bot! Choose a box:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("🎁 Choose a Mystery Box to open:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-async def handle_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_box_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    user_id = str(query.from_user.username or query.from_user.id)
+    await query.answer()
+    user_id = query.from_user.id
 
-    if user_id not in user_clicks:
-        user_clicks[user_id] = {"count": 0, "history": []}
+    box_key = query.data.replace("box_", "")
+    session = user_sessions.get(user_id, {"clicks": 0})
 
-    if user_clicks[user_id]["count"] >= 5:
-        await query.answer()
+    if session["clicks"] >= 5:
         await query.edit_message_text("⚠️ You've reached your 5 box limit.")
         return
 
-    box_name = query.data.split("_")[1]
-    box_pool = box_3000 if box_name == "3000" else box_6000 if box_name == "6000" else box_7500
-    watches = generate_watches(box_pool, user_id, box_name)
+    session["clicks"] += 1
+    box_info = box_data[box_key]
+    click_num = session["clicks"]
 
-    display = "\n".join([f"{quality} {watch}" for watch, quality in watches])
-    user_clicks[user_id]["count"] += 1
-    user_clicks[user_id]["history"].append(watches)
+    # Logic for guaranteed watch on 5th click in 7500 box
+    if box_key == "7500" and click_num % 5 == 0:
+        selected_watch = next(w for w in box_info["watches"] if w["name"] == "Omega Mission to the Moon")
+    else:
+        non_guaranteed = [w for w in box_info["watches"] if w["name"] != "Omega Mission to the Moon"]
+        selected_watch = random.choice(non_guaranteed)
 
-    button_text = "Open Another Box" if user_clicks[user_id]["count"] < 5 else "Select Watch"
-    reply_markup = InlineKeyboardMarkup.from_button(
-        InlineKeyboardButton(button_text, callback_data=query.data)
+    user_sessions[user_id] = session  # Save session state
+    keyboard = [[InlineKeyboardButton("Open Another Box", callback_data=f"box_{box_key}")]]
+    await query.edit_message_text(
+        f"🎉 You pulled: {selected_watch['name']}
+Brand: {selected_watch['brand']} {selected_watch['quality']}",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    await query.answer()
-    await query.edit_message_text(f"🎁 Box {user_clicks[user_id]['count']} Results:\n\n{display}", reply_markup=reply_markup)
-
 def main():
-    app = Application.builder().token(TOKEN).build()
+    logging.basicConfig(level=logging.INFO)
+    app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_click))
+    app.add_handler(CallbackQueryHandler(handle_box_selection))
+
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-"""
-
-# Save the full working bot code to a file
-output_path = Path("/mnt/data/mystery_box_bot_final_token_style.py")
-output_path.write_text(bot_code)
-output_path
