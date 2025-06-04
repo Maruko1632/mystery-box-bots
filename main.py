@@ -89,7 +89,7 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         pool = get_watch_list(user)
         if user == "StephenMaruko" and user_clicks[user] == 4:
-            selected = "Omega Mission to the Moon"
+            selected = "Omega Speedmaster Co-Axial"
         else:
             options = [w for w in pool if w not in user_history[user]]
             selected = random.choice(options)
@@ -101,23 +101,23 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_clicks[user] += 1
     user_history[user].append(selected)
 
-    text = f"🎁 You opened box #{user_clicks[user]}:\n\n{selected}"
-
-    buttons = []
-    if user_clicks[user] < 5:
-        buttons.append([
-            InlineKeyboardButton(f"🔁 Open another {box.replace('box_', '$')} box", callback_data=box),
-            InlineKeyboardButton("✅ Select Watch", callback_data="select")
-        ])
-    else:
+    if user_clicks[user] >= 5:
+        final_selection[user] = selected
         final_text = (
-            f"🎉 You've selected your final watch:\n\n{selected}\n\n"
-            "Please contact us to plan pickup or shipping.\n"
+            f"🎉 Congratulations! You've selected your final watch:\n\n"
+            f"Watch: {selected}\n\n"
+            "Please contact us to plan pickup or shipping.\n\n"
             "⚠️ You've reached your 5 box limit."
         )
-        final_selection[user] = selected
         await query.message.reply_text(final_text)
         return
+
+    text = f"🎁 You opened box #{user_clicks[user]}:\n\n{selected}"
+
+    buttons = [
+        [InlineKeyboardButton(f"🔁 Open another {box.replace('box_', '$')} box", callback_data=box)],
+        [InlineKeyboardButton("✅ Select Watch", callback_data="select")]
+    ]
 
     await query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
@@ -132,8 +132,9 @@ async def handle_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     selected = user_history[user][-1]
     final_selection[user] = selected
     final_msg = (
-        f"🎉 You've selected your final watch:\n\n{selected}\n\n"
-        "Please contact us to plan pickup or shipping.\n"
+        f"🎉 Congratulations! You've selected your final watch:\n\n"
+        f"Watch: {selected}\n\n"
+        "Please contact us to plan pickup or shipping.\n\n"
         "⚠️ You've reached your 5 box limit."
     )
     await query.message.reply_text(final_msg)
